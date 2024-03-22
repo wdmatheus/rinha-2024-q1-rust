@@ -1,4 +1,4 @@
-use std::{env, f32::consts::E, sync::Arc};
+use std::{env, sync::Arc};
 
 use axum::{
     extract::{Path, State},
@@ -7,12 +7,10 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use serde_json::json;
-use database::Database;
-use models::{CriarTransacao, TransacaoCriada};
+
+use database::{Database, CriarTransacao, TransacaoCriada};
 
 mod database;
-mod models;
 
 type AppState = Arc<Database>;
 
@@ -47,28 +45,33 @@ async fn main() {
         .unwrap();
 }
 
-async fn extrato(
-    State(database): State<AppState>,
-    Path(id): Path<u8>,
-) -> impl IntoResponse{
-
-    match database.obter_extrato(id as i32).await {       
-        Some(extrato) => Ok((StatusCode::OK, [("Content-Type", "application/json")], extrato.json.to_string())),
-        None =>  Err(StatusCode::NOT_FOUND)       
+async fn extrato(State(database): State<AppState>, Path(id): Path<u8>) -> impl IntoResponse {
+    match database.obter_extrato(id as i32).await {
+        Some(extrato) => Ok((
+            StatusCode::OK,
+            [("Content-Type", "application/json")],
+            extrato.json.to_string(),
+        )),
+        None => Err(StatusCode::NOT_FOUND),
     }
 }
 
 async fn criar_transacao(
+    State(database): State<AppState>,
     Path(id): Path<u8>,
     Json(payload): Json<CriarTransacao>,
 ) -> impl IntoResponse {
-    if payload.eh_valido() {
-        let response = TransacaoCriada {
-            limite: 1000 + id as i64,
-            saldo: 9000 + id as i64,
-        };
-        Ok(Json(response))
-    } else {
-        Err(StatusCode::UNPROCESSABLE_ENTITY)
-    }
+    match payload.eh_valido() {
+        true => {
+            let transacao_criada = database.criar_transacao(id as i32, payload).await;
+
+            match transacao_criada {
+                TransacaoCriada { cliente_id_resp: 0, limite_resp:_, saldo_resp: _, transacao_foi_criada: _ } =>  Err(StatusCode::NOT_FOUND),
+                TransacaoCriada { cliente_id_resp: _, limite_resp: _, saldo_resp: _, transacao_foi_criada: false } =>  Err(StatusCode::UNPROCESSABLE_ENTITY),
+                _ => Ok(Json(transacao_criada))
+            }
+            
+        }
+        _ => Err(StatusCode::UNPROCESSABLE_ENTITY),
+    }    
 }
