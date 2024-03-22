@@ -1,8 +1,4 @@
-use sqlx::{    
-    postgres:: PgPoolOptions,
-    PgPool,
-    types::JsonValue
-};
+use sqlx::{postgres::PgPoolOptions, types::JsonValue, PgPool};
 
 use serde::{Deserialize, Serialize};
 
@@ -60,7 +56,6 @@ impl Database {
     }
 
     pub async fn obter_extrato(&self, cliente_id: i32) -> Option<Extrato> {
-
         let _ = sqlx::query("refresh materialized view concurrently public.vw_extrato;")
             .fetch_optional(&self.pool)
             .await
@@ -82,13 +77,15 @@ impl Database {
         cliente_id: i32,
         transacao: CriarTransacao,
     ) -> TransacaoCriada {
-        sqlx::query_as::<_, TransacaoCriada>("call public.criar_transacao($1::integer, $2::integer, $3::integer, $4::varchar(10));")
-            .bind(cliente_id)
-            .bind(transacao.valor)
-            .bind(transacao.tipo as i32)
-            .bind(transacao.descricao)
-            .fetch_one(&self.pool)
-            .await
-            .unwrap()
+        sqlx::query_as::<_, TransacaoCriada>(
+            "call public.criar_transacao($1::integer, $2::integer, $3::integer, $4::varchar(10));",
+        )
+        .bind(cliente_id)
+        .bind(transacao.valor)
+        .bind(transacao.tipo as i32)
+        .bind(transacao.descricao)
+        .fetch_one(&self.pool)
+        .await
+        .unwrap()
     }
 }
