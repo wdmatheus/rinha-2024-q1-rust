@@ -29,13 +29,15 @@ async fn connect_to_database(database_url: String) -> Database {
 }
 
 fn resolve_server_url() -> String {
-    let port = env::var("PORT").ok().unwrap_or(String::from("9999"));
+    let port = env::var("PORT").ok().unwrap_or(String::from("8080"));
     format!("0.0.0.0:{port}")
 }
 
 #[tokio::main]
 async fn main() {
-    let database_url = resolve_database_url();    
+    println!("initalized");
+
+    let database_url = resolve_database_url();
 
     let database = connect_to_database(database_url).await;
 
@@ -43,16 +45,21 @@ async fn main() {
 
     let server_url = resolve_server_url();
 
+    println!("{}", server_url);
+
     let app = Router::new()
         .route("/clientes/:id/extrato", get(extrato))
         .route("/clientes/:id/transacoes", post(criar_transacao))
         .with_state(app_state);
 
-    let listener = tokio::net::TcpListener::bind(server_url).await.unwrap();
-
-    axum::serve(listener, app.into_make_service())
-        .await
-        .unwrap();
+    match tokio::net::TcpListener::bind(server_url).await {
+        Ok(listener) => {
+            axum::serve(listener, app.into_make_service())
+                .await
+                .unwrap_or_else(|_| println!("error"));
+        }
+        Err(e) => println!("{}", e),
+    }
 }
 
 async fn extrato(State(database): State<AppState>, Path(id): Path<u8>) -> impl IntoResponse {

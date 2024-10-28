@@ -35,6 +35,7 @@ pub struct TransacaoCriada {
     pub transacao_foi_criada: bool,
 }
 
+#[allow(dead_code)]
 #[derive(sqlx::FromRow)]
 pub struct Extrato {
     pub id: i32,
@@ -47,12 +48,18 @@ pub struct Database {
 
 impl Database {
     pub async fn connect(url: &str, pool_size: u32) -> Result<Self, sqlx::Error> {
-        let pool = PgPoolOptions::new()
+        let pool_result = PgPoolOptions::new()
             .max_connections(pool_size)
             .connect(url)
-            .await?;
+            .await;
 
-        Ok(Database { pool })
+        match pool_result {
+            Ok(pool) => Ok(Database { pool }),
+            Err(e) => {
+                print!("{}", e);
+                Err(e)
+            }
+        }
     }
 
     pub async fn obter_extrato(&self, cliente_id: i32) -> Option<Extrato> {
